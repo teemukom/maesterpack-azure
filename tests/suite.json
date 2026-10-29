@@ -1,0 +1,10 @@
+{
+  "Id": "AZR.Azure",
+  "Name": "Azure APRL checks and local controls",
+  "Source": "Custom",
+  "Tags": [
+    "Azure"
+  ],
+  "RequiresMaester": "3.0",
+  "HelpUrlTemplate": "https://github.com/teemukom/maesterpack-azure/blob/main/tests/Test.{Id}.md"
+}

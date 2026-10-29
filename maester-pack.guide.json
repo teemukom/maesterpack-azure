@@ -1,0 +1,39 @@
+{
+  "$schema": "https://maester.dev/schemas/maester-pack-guide-1.0.json",
+  "Summary": "55 read-only Azure checks: 37 automated APRL-mapped recommendations and 18 local custom controls using Azure Resource Manager and Resource Graph.",
+  "Prerequisites": [
+    {
+      "Text": "Maester 3.0 or later and PowerShell 7."
+    },
+    {
+      "Text": "Azure Reader access to the subscriptions you want to assess. The management-group hierarchy check also requires Reader visibility at the tenant root management group to evaluate the full hierarchy."
+    }
+  ],
+  "Connect": {
+    "Steps": [
+      {
+        "Text": "Connect to Azure using Maester's Azure PowerShell service.",
+        "Command": "Connect-Maester -Service Azure"
+      }
+    ],
+    "Notes": [
+      "Azure CLI az login alone does not create the Az.Accounts context used by these checks."
+    ]
+  },
+  "Run": {
+    "Commands": [
+      {
+        "Text": "Run only this pack and create the standard Maester report.",
+        "Command": "Invoke-Maester -Pack AZR -SkipBuiltIn -SkipGraphConnect"
+      }
+    ]
+  },
+  "AppOnly": {
+    "Supported": false,
+    "Text": "Application-only authentication has not been validated for this pack."
+  },
+  "Support": {
+    "Tests": "https://github.com/teemukom/maesterpack-azure/issues",
+    "Pack": "https://github.com/teemukom/maesterpack-azure/issues"
+  }
+}

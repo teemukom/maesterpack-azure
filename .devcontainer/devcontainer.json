@@ -1,0 +1,24 @@
+{
+  "name": "Maester Azure Pack",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/powershell:2": {
+      "version": "7.4"
+    },
+    "ghcr.io/devcontainers/features/azure-cli:1": {
+      "version": "2.89.0"
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "pwsh"
+      },
+      "extensions": [
+        "ms-vscode.powershell",
+        "ms-vscode.azurecli"
+      ]
+    }
+  }
+}

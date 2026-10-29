@@ -1,0 +1,41 @@
+name: Check pack
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install test dependencies
+        shell: pwsh
+        run: |
+          Install-Module Az.Accounts -RequiredVersion '5.5.2' -Scope CurrentUser -Force -Confirm:$false
+          Install-Module Maester -RequiredVersion '3.0.0-rc26' -AllowPrerelease -Scope CurrentUser -Force -Confirm:$false
+      - name: Validate pack
+        shell: pwsh
+        run: |
+          Import-Module Maester
+          $check = Test-MtPack .
+          $check | Format-List Id, Version, IsValid, Risk, Errors, Warnings, Findings
+          if (-not $check.IsValid) { throw 'The pack is invalid.' }
+          if ($check.Risk -eq 'High') { throw 'The pack has a high security risk.' }
+
+      - name: Load and run tests without tenant access
+        shell: pwsh
+        run: |
+          Import-Module Maester
+          $results = @(Invoke-MtTest -Path .)
+          $results | Format-Table Id, Result, ReasonCode -AutoSize | Out-String -Width 200
+          if ($results.Count -ne 55) { throw "Expected 55 tests, found $($results.Count)." }
+          $broken = @($results | Where-Object { $_.ReasonCode -in 'InvalidMetadata', 'InvalidReturn', 'InvalidConfiguration', 'InvalidInstanceId', 'InstanceSourceFailed' })
+          if ($broken) { throw "The engine could not run $($broken.Count) test(s): $($broken.Id -join ', ')" }

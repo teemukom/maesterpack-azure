@@ -1,0 +1,98 @@
+﻿<#
+.SYNOPSIS
+    Checks if every active Azure subscription has a Cost Management budget
+
+.DESCRIPTION
+    This test validates budget coverage by ensuring each enabled subscription
+    has at least one Cost Management budget with an enabled notification and recipient.
+
+.EXAMPLE
+    Test-MtCostBudgetsCoverage
+
+    Returns true when every enabled subscription has at least one budget alert.
+
+.LINK
+    https://maester.dev/docs/commands/Test-MtCostBudgetsCoverage
+#>
+function Test-MtCostBudgetsCoverage {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+    )
+
+    if (!(Test-MtConnection Azure)) {
+        Add-MtTestResultDetail -SkippedBecause NotConnectedAzure
+        return $null
+    }
+
+    $resultsMarkdown = ""
+
+    try {
+        $subscriptionsQuery = "ResourceContainers | where type =~ 'microsoft.resources/subscriptions' | where properties.state =~ 'Enabled' | project subscriptionId, name"
+        $enabledSubscriptions = Invoke-MtAzureResourceGraphRequest -Query $subscriptionsQuery
+    }
+    catch {
+        Add-MtTestResultDetail -SkippedBecause "Custom" -SkippedCustomReason "Failed to query subscriptions" -SkippedError $_
+        return $null
+    }
+
+    try {
+        $budgetsQuery = "Resources | where type =~ 'Microsoft.Consumption/budgets' | project id, name, subscriptionId, properties"
+        $budgets = Invoke-MtAzureResourceGraphRequest -Query $budgetsQuery
+    }
+    catch {
+        Add-MtTestResultDetail -SkippedBecause "Custom" -SkippedCustomReason "Failed to query Cost Management budgets" -SkippedError $_
+        return $null
+    }
+
+    $subscriptionCount = @($enabledSubscriptions).Count
+    Write-Verbose "Checking budget coverage for $subscriptionCount enabled subscription(s)"
+
+    if ($subscriptionCount -eq 0) {
+        Add-MtTestResultDetail -Result "No enabled subscriptions found."
+        return $true
+    }
+
+    $coverageBySubscription = @{}
+    foreach ($subscription in $enabledSubscriptions) {
+        $coverageBySubscription[$subscription.subscriptionId] = $false
+    }
+
+    foreach ($budget in @($budgets)) {
+        $subId = $budget.subscriptionId
+        if ([string]::IsNullOrWhiteSpace($subId)) { continue }
+        if (-not $coverageBySubscription.ContainsKey($subId)) { continue }
+        if (Test-MtCostBudgetHasEnabledAlert -Budget $budget) {
+            $coverageBySubscription[$subId] = $true
+        }
+    }
+
+    $subscriptionsMissingCoverage = @()
+    foreach ($subscription in $enabledSubscriptions) {
+        if (-not $coverageBySubscription[$subscription.subscriptionId]) {
+            $subscriptionsMissingCoverage += $subscription
+        }
+    }
+
+    $coveredCount = $subscriptionCount - @($subscriptionsMissingCoverage).Count
+    $testResult = @($subscriptionsMissingCoverage).Count -eq 0
+
+    if ($testResult) {
+        $testResultMarkdown = "Well done. All $subscriptionCount enabled subscription(s) have at least one Cost Management budget with an enabled alert notification and recipient."
+    }
+    else {
+        $testResultMarkdown = "$coveredCount of $subscriptionCount enabled subscription(s) have at least one Cost Management budget with an enabled alert notification and recipient."
+    }
+
+    foreach ($subscription in $enabledSubscriptions) {
+        $status = if ($coverageBySubscription[$subscription.subscriptionId]) { 'has enabled budget alert' } else { 'no enabled budget alert found' }
+        $resultsMarkdown += "- $($subscription.name) ($($subscription.subscriptionId)): $status`n"
+    }
+
+        if ($resultsMarkdown) {
+            $testResultMarkdown += "`n`n**Subscription Coverage Details:**`n$resultsMarkdown"
+        }
+
+    Add-MtTestResultDetail -Result $testResultMarkdown
+    return $testResult
+}

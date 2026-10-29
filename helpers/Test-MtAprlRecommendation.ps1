@@ -1,0 +1,79 @@
+﻿<#
+.SYNOPSIS
+    Runs an automated APRL recommendation using its bundled implementation.
+
+.DESCRIPTION
+    Looks up the APRL recommendation GUID in the bundled catalog, executes its
+    Azure Resource Graph query, and returns true when zero non-compliant resources
+    are found. Zero rows returned by the ARG query means all resources are compliant.
+
+    SQL geo-replication uses ARM replication links rather than the upstream name-based query.
+    The catalog ships with the pack and does not require an upstream connection at runtime.
+
+.PARAMETER AprlGuid
+    The APRL recommendation GUID, e.g. 'c72b7fee-1fa0-5b4b-98e5-54bcae95bb74'.
+
+.EXAMPLE
+    Test-MtAprlRecommendation -AprlGuid 'c72b7fee-1fa0-5b4b-98e5-54bcae95bb74'
+
+    Returns true if all Azure Firewalls are deployed across multiple availability zones.
+
+.LINK
+    https://maester.dev/docs/commands/Test-MtAprlRecommendation
+#>
+function Test-MtAprlRecommendation {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$AprlGuid
+    )
+
+    if (!(Test-MtConnection Azure)) {
+        Add-MtTestResultDetail -SkippedBecause NotConnectedAzure
+        return $null
+    }
+
+    $Rec = Get-MtAprlCatalogEntry -AprlGuid $AprlGuid
+    if ($null -eq $Rec) {
+        Add-MtTestResultDetail -SkippedBecause Custom -SkippedCustomReason "APRL GUID '$AprlGuid' not found in the bundled catalog. Validate the pack's APRL mappings."
+        return $null
+    }
+
+    Write-Verbose "Running APRL check for GUID ${AprlGuid}: $($Rec.Title)"
+
+    if (-not $Rec.HasAutomation) {
+        Add-MtTestResultDetail -SkippedBecause Custom -SkippedCustomReason "This APRL recommendation requires manual verification. See $($Rec.LearnMoreUrl)"
+        return $null
+    }
+
+    if ($Rec.Implementation -eq 'ReplicationLinks') {
+        return Test-MtSqlDatabaseGeoReplication
+    }
+
+    try {
+        $NonCompliant = Invoke-MtAzureResourceGraphRequest -Query $Rec.Kql
+    }
+    catch {
+        Add-MtTestResultDetail -SkippedBecause Error -SkippedError $_
+        return $null
+    }
+
+    $TestResult = $NonCompliant.Count -eq 0
+
+    if ($TestResult) {
+        $TestResultMarkdown = "Well done. No non-compliant resources found for: **$($Rec.Title)**"
+    }
+    else {
+        $TestResultMarkdown = "Found **$($NonCompliant.Count)** non-compliant resource(s) for: **$($Rec.Title)**`n`n"
+        $TestResultMarkdown += "| Resource | Details |`n|---|---|`n"
+        foreach ($R in $NonCompliant) {
+            $Detail = if ($R.PSObject.Properties['param1']) { [string]$R.param1 } else { '' }
+            $TestResultMarkdown += "| $($R.name) | $Detail |`n"
+        }
+        $TestResultMarkdown += "`n> **Learn more:** [$($Rec.LearnMoreUrl)]($($Rec.LearnMoreUrl))"
+    }
+
+    Add-MtTestResultDetail -Result $TestResultMarkdown
+    return $TestResult
+}

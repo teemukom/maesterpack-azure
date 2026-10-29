@@ -1,0 +1,36 @@
+{
+  "$schema": "https://maester.dev/schemas/maester-pack-1.0.json",
+  "Id": "teemukom.azure",
+  "Guid": "1d428e5a-3bc1-4c75-87eb-76d9fe3ba5fd",
+  "Name": "Azure APRL and Custom Controls",
+  "Description": "Azure checks comprising APRL-mapped recommendations and local custom controls.",
+  "Version": "0.1.0",
+  "Publisher": "teemukom",
+  "License": "MIT",
+  "Homepage": "https://github.com/teemukom/maesterpack-azure",
+  "Support": "https://github.com/teemukom/maesterpack-azure/issues",
+  "SecurityContact": "https://github.com/teemukom/maesterpack-azure/security/advisories/new",
+  "RequiresMaester": ">=3.0",
+  "Code": "AZR",
+  "Suites": [
+    "tests"
+  ],
+  "Guide": "maester-pack.guide.json",
+  "Banner": "assets/banner.png",
+  "Helpers": [
+    "helpers"
+  ],
+  "Uses": {
+    "Services": [
+      "Azure"
+    ],
+    "GraphScopes": [],
+    "TenantWrites": [],
+    "Network": [
+      "management.azure.com",
+      "management.usgovcloudapi.net",
+      "management.chinacloudapi.cn"
+    ],
+    "Modules": []
+  }
+}
