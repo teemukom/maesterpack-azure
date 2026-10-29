@@ -1,5 +1,7 @@
 # Maester Azure Pack
 
+![Maester Azure Pack banner](assets/banner.png)
+
 Maester pack containing 55 read-only Azure checks: 37 mapped to automated Azure Proactive Resiliency Library (APRL) recommendations and 18 local custom controls. APRL-mapped tests use upstream recommendations with `automationAvailable: true` and executable queries. All tests use the `MP.AZR.*` ID prefix.
 
 The custom controls cover security baselines, cost monitoring, resource hygiene, management-group governance, and activity-log coverage. They are not automated APRL-mapped checks; a local control can still overlap with related or manual-only APRL guidance.
