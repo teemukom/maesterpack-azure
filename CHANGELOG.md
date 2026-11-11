@@ -1,8 +1,10 @@
 # Changelog
 
-Changes to this pack are recorded here. Once version 0.1.0 is ready for release, move the initial entry under a `0.1.0` heading.
+Changes to this pack are recorded here.
 
 ## Unreleased
+
+## 0.1.0
 
 - Include 37 read-only checks mapped to automated upstream APRL recommendations and retain 18 local custom controls.
 - Clearly distinguish APRL-mapped recommendations from local custom controls.
