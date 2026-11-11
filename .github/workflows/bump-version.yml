@@ -1,0 +1,130 @@
+name: Bump version
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled, ready_for_review]
+
+concurrency:
+  group: bump-version-${{ github.event.pull_request.number }}
+
+permissions:
+  contents: read
+
+jobs:
+  bump:
+    if: >-
+      vars.PACK_RELEASES == 'true' &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    outputs:
+      sha: ${{ steps.bump.outputs.sha }}
+      version: ${{ steps.bump.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Raise the version
+        id: bump
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          $labels = @(gh pr view $env:PR_NUMBER --json labels --jq '.labels[].name')
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read the pull request labels.' }
+          $noRelease = $labels -contains 'release:none'
+          $part = if ($labels -contains 'release:major') { 'major' } elseif ($labels -contains 'release:minor') { 'minor' } else { 'patch' }
+
+          git fetch --quiet origin main
+          $baseManifest = (git show origin/main:maester-pack.json | Out-String) | ConvertFrom-Json
+          $base = [version]$baseManifest.Version
+          $text = Get-Content -LiteralPath maester-pack.json -Raw
+          $current = [version](($text | ConvertFrom-Json).Version)
+          $log = Get-Content -LiteralPath CHANGELOG.md -Raw
+          $unreleased = [regex]'(?m)^## Unreleased[ \t]*\r?$'
+          $earlier = [regex]('(?m)^## ' + [regex]::Escape([string]$current) + '[ \t]*\r?$')
+          $mainLog = (git show origin/main:CHANGELOG.md) -join "`n"
+          if ($noRelease) {
+            if ($current -le $base) {
+              Write-Output 'The pull request has release:none: the version stays as it is.'
+              return
+            }
+            if ($unreleased.IsMatch($log) -or -not $earlier.IsMatch($log) -or $earlier.IsMatch($mainLog)) {
+              throw 'Cannot undo the version bump safely; check the version headings in CHANGELOG.md.'
+            }
+            $next = [string]$base
+            $log = $earlier.Replace($log, '## Unreleased', 1)
+            $text = ([regex]'("Version"\s*:\s*")[^"]*(")').Replace($text, "`${1}$next`${2}", 1)
+          } else {
+            $next = switch ($part) {
+              'major' { '{0}.0.0' -f ($base.Major + 1) }
+              'minor' { '{0}.{1}.0' -f $base.Major, ($base.Minor + 1) }
+              default { '{0}.{1}.{2}' -f $base.Major, $base.Minor, ([math]::Max($base.Build, 0) + 1) }
+            }
+            if ($current -eq [version]$next) {
+              Write-Output "The version is already $next ($part above $base on main)."
+              return
+            }
+
+            $text = ([regex]'("Version"\s*:\s*")[^"]*(")').Replace($text, "`${1}$next`${2}", 1)
+            if ($unreleased.IsMatch($log)) {
+              $log = $unreleased.Replace($log, "## $next", 1)
+            } elseif ($current -gt $base -and $earlier.IsMatch($log) -and -not $earlier.IsMatch($mainLog)) {
+              $log = $earlier.Replace($log, "## $next", 1)
+            } else {
+              $entry = "## $next`n`n- $env:PR_TITLE (#$env:PR_NUMBER)`n`n"
+              $first = [regex]::Match($log, '(?m)^## ')
+              $log = if ($first.Success) { $log.Insert($first.Index, $entry) } else { $log.TrimEnd() + "`n`n" + $entry }
+            }
+          }
+          if (($text | ConvertFrom-Json).Version -ne $next) { throw 'Could not change Version in maester-pack.json.' }
+          [System.IO.File]::WriteAllText((Resolve-Path maester-pack.json), $text)
+          [System.IO.File]::WriteAllText((Resolve-Path CHANGELOG.md), $log)
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add maester-pack.json CHANGELOG.md
+          git commit --quiet -m "Version $next"
+          git push --quiet origin "HEAD:$($env:HEAD_REF)"
+          "sha=$(git rev-parse HEAD)" >> $env:GITHUB_OUTPUT
+          "version=$next" >> $env:GITHUB_OUTPUT
+          $summary = if ($noRelease) { "Restored version **$next** for release:none." } else { "Set the version to **$next** ($part above $base on main)." }
+          $summary >> $env:GITHUB_STEP_SUMMARY
+
+  validate:
+    needs: bump
+    if: needs.bump.outputs.sha != ''
+    uses: ./.github/workflows/check-pack.yml
+    with:
+      ref: ${{ needs.bump.outputs.sha }}
+
+  report:
+    needs: [bump, validate]
+    if: always() && needs.bump.outputs.sha != ''
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+    steps:
+      - name: Report the check on the version commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.bump.outputs.sha }}
+          VERSION: ${{ needs.bump.outputs.version }}
+          RESULT: ${{ needs.validate.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          conclusion=failure
+          if [ "$RESULT" = "success" ]; then conclusion=success; fi
+          gh api --method POST "repos/$GITHUB_REPOSITORY/check-runs" \
+            -f name=check -f head_sha="$SHA" -f status=completed -f conclusion="$conclusion" -f details_url="$RUN_URL" \
+            -f "output[title]=Pack check of version $VERSION: $RESULT" \
+            -f "output[summary]=The version commit was checked by the Bump version workflow: $RUN_URL"
