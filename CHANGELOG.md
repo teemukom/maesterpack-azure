@@ -2,9 +2,10 @@
 
 Changes to this pack are recorded here.
 
-## Unreleased
+## 0.1.1
 
 - Add an automated APRL-mapped check for Azure Container Registry anonymous pull access.
+- Add seven custom read-only checks for Storage, App Service, Container Registry, NSG, AKS, Key Vault, and blob data-protection configurations.
 
 ## 0.1.0
 
