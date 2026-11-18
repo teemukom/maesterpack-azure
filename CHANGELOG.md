@@ -2,7 +2,7 @@
 
 Changes to this pack are recorded here.
 
-## Unreleased
+## 0.1.1
 
 - Add an automated APRL-mapped check for Azure Container Registry anonymous pull access.
 
