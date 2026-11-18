@@ -44,6 +44,6 @@ jobs:
           Import-Module Maester
           $results = @(Invoke-MtTest -Path .)
           $results | Format-Table Id, Result, ReasonCode -AutoSize | Out-String -Width 200
-          if ($results.Count -ne 56) { throw "Expected 56 tests, found $($results.Count)." }
+          if ($results.Count -ne 63) { throw "Expected 63 tests, found $($results.Count)." }
           $broken = @($results | Where-Object { $_.ReasonCode -in 'InvalidMetadata', 'InvalidReturn', 'InvalidConfiguration', 'InvalidInstanceId', 'InstanceSourceFailed' })
           if ($broken) { throw "The engine could not run $($broken.Count) test(s): $($broken.Id -join ', ')" }

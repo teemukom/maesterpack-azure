@@ -17,7 +17,7 @@ Invoke-MtTest -Path .
 
 ## APRL scope
 
-The pack contains 37 APRL-mapped tests and 18 local custom controls. For APRL tests,
+The pack contains 38 APRL-mapped tests and 25 local custom controls. For APRL tests,
 verify the recommendation GUID, `automationAvailable` status, and executable query
 against upstream APRL before changing the mapping. Keep local controls clearly
 identified as custom, without APRL tags or claims. Document any local implementation
