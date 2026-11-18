@@ -11,66 +11,83 @@ function Test-MtStorageBlobProtection {
     try {
         $query = @'
 Resources
-| where type =~ 'Microsoft.Storage/storageAccounts/blobServices'
-| where tolower(id) endswith '/blobservices/default'
-| extend accountId = tolower(substring(id, 0, indexof(tolower(id), '/blobservices/')))
-| project serviceId = id, accountId, resourceGroup, subscriptionId,
-    softDeleteEnabled = tobool(properties.deleteRetentionPolicy.enabled),
-    versioningEnabled = tobool(properties.isVersioningEnabled)
-| join kind=inner (
-    Resources
-    | where type =~ 'Microsoft.Storage/storageAccounts'
-    | project accountId = tolower(id), accountName = name, accountKind = tostring(kind),
-        isHnsEnabled = tobool(properties.isHnsEnabled)
-) on accountId
-| project serviceId, accountName, resourceGroup, subscriptionId, accountKind, isHnsEnabled,
-    softDeleteEnabled, versioningEnabled
+| where type =~ 'Microsoft.Storage/storageAccounts'
+| extend accountKind = tostring(kind), isHnsEnabled = tobool(properties.isHnsEnabled)
+| where accountKind in~ ('Storage', 'StorageV2', 'BlobStorage', 'BlockBlobStorage')
+| project id, name, resourceGroup, subscriptionId, accountKind, isHnsEnabled
 '@
-        $blobServices = @(Invoke-MtAzureResourceGraphRequest -Query $query)
+        $storageAccounts = @(Invoke-MtAzureResourceGraphRequest -Query $query)
     }
     catch {
         Add-MtTestResultDetail -SkippedBecause Error -SkippedError $_
         return $null
     }
 
-    if ($blobServices.Count -eq 0) {
-        Add-MtTestResultDetail -Result 'No applicable Storage blob services were found.'
+    if ($storageAccounts.Count -eq 0) {
+        Add-MtTestResultDetail -Result 'No blob-capable Storage accounts were found.'
         return $true
     }
 
     $nonCompliantServices = @()
-    foreach ($service in $blobServices) {
-        if ($null -eq $service.softDeleteEnabled) {
-            Add-MtTestResultDetail -SkippedBecause Custom -SkippedCustomReason "Could not determine blob soft-delete support or state for Storage account '$($service.accountName)'."
+    foreach ($account in $storageAccounts) {
+        $accountKind = [string]$account.accountKind
+        $isHnsEnabled = $account.isHnsEnabled
+        $supportsVersioning = $accountKind -in @('StorageV2', 'BlobStorage', 'BlockBlobStorage')
+
+        if ($supportsVersioning -and $null -eq $isHnsEnabled) {
+            $accountRelativeUri = "$($account.id.TrimStart('/'))"
+            try {
+                $accountProperties = Invoke-MtAzureRequest -RelativeUri $accountRelativeUri -ApiVersion '2023-05-01'
+                if ([string]::IsNullOrWhiteSpace($accountKind)) {
+                    $accountKind = [string]$accountProperties.kind
+                    $supportsVersioning = $accountKind -in @('StorageV2', 'BlobStorage', 'BlockBlobStorage')
+                }
+                if ($null -eq $accountProperties -or $null -eq $accountProperties.properties) {
+                    throw "ARM did not return properties for Storage account '$($account.name)'."
+                }
+                # The Storage Resource Provider omits isHnsEnabled when it is false by default.
+                $isHnsEnabled = $accountProperties.properties.isHnsEnabled -eq $true
+            }
+            catch {
+                Add-MtTestResultDetail -SkippedBecause Error -SkippedError $_
+                return $null
+            }
+
+        }
+
+        $relativeUri = "$($account.id.TrimStart('/'))/blobServices/default"
+        try {
+            $blobService = Invoke-MtAzureRequest -RelativeUri $relativeUri -ApiVersion '2023-01-01'
+        }
+        catch {
+            Add-MtTestResultDetail -SkippedBecause Error -SkippedError $_
             return $null
         }
 
-        $supportsVersioning = $service.accountKind -in @('StorageV2', 'BlobStorage', 'BlockBlobStorage')
-        if ($supportsVersioning -and $null -eq $service.isHnsEnabled) {
-            Add-MtTestResultDetail -SkippedBecause Custom -SkippedCustomReason "Could not determine whether hierarchical namespace is enabled for Storage account '$($service.accountName)', so blob versioning applicability could not be established."
-            return $null
-        }
-        $versioningApplies = $supportsVersioning -and $service.isHnsEnabled -eq $false
-        if ($versioningApplies -and $null -eq $service.versioningEnabled) {
-            Add-MtTestResultDetail -SkippedBecause Custom -SkippedCustomReason "Could not determine blob versioning support or state for Storage account '$($service.accountName)'."
+        if ($null -eq $blobService -or $null -eq $blobService.properties) {
+            Add-MtTestResultDetail -SkippedBecause Custom -SkippedCustomReason "The ARM response did not contain blob-service properties for Storage account '$($account.name)'."
             return $null
         }
 
-        if ($service.softDeleteEnabled -ne $true -or ($versioningApplies -and $service.versioningEnabled -ne $true)) {
+        $versioningApplies = $supportsVersioning -and $isHnsEnabled -eq $false
+        $softDeleteEnabled = $blobService.properties.deleteRetentionPolicy.enabled -eq $true
+        $versioningEnabled = $blobService.properties.isVersioningEnabled -eq $true
+
+        if ($softDeleteEnabled -ne $true -or ($versioningApplies -and $versioningEnabled -ne $true)) {
             $nonCompliantServices += [pscustomobject]@{
-                Name                = $service.accountName
-                ResourceGroup       = $service.resourceGroup
-                SubscriptionId      = $service.subscriptionId
-                Kind                = $service.accountKind
-                SoftDeleteEnabled   = $service.softDeleteEnabled
+                Name                = $account.name
+                ResourceGroup       = $account.resourceGroup
+                SubscriptionId      = $account.subscriptionId
+                Kind                = $accountKind
+                SoftDeleteEnabled   = $softDeleteEnabled
                 VersioningApplies   = $versioningApplies
-                VersioningEnabled   = $service.versioningEnabled
+                VersioningEnabled   = $versioningEnabled
             }
         }
     }
 
     if ($nonCompliantServices.Count -eq 0) {
-        Add-MtTestResultDetail -Result "Well done. All $($blobServices.Count) applicable Storage blob services have soft delete enabled and have versioning enabled where supported."
+        Add-MtTestResultDetail -Result "Well done. All $($storageAccounts.Count) blob-capable Storage accounts have soft delete enabled and versioning enabled where supported."
         return $true
     }
 
