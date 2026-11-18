@@ -1,6 +1,6 @@
 {
   "$schema": "https://maester.dev/schemas/maester-pack-guide-1.0.json",
-  "Summary": "57 read-only Azure checks: 39 automated APRL-mapped recommendations and 18 local custom controls using Azure Resource Manager and Resource Graph.",
+  "Summary": "56 read-only Azure checks: 38 automated APRL-mapped recommendations and 18 local custom controls using Azure Resource Manager and Resource Graph.",
   "Prerequisites": [
     {
       "Text": "Maester 3.0 or later and PowerShell 7."

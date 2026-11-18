@@ -736,24 +736,6 @@ resources
 '@
             }
 
-            # AZR.0039 — Container Registry: enable zone redundancy
-            '63491f70-22e4-3b4a-8b0c-845450e46fac' = @{
-                AzrId        = 'AZR.0039'
-                Title        = 'Enable zone redundancy for Azure Container Registry'
-                Impact       = 'Medium'
-                ResourceType = 'Microsoft.ContainerRegistry/registries'
-                HasAutomation = $true
-                LearnMoreUrl = 'https://learn.microsoft.com/azure/container-registry/zone-redundancy?toc=%2Fazure%2Freliability%2Ftoc.json&bc=%2Fazure%2Freliability%2Fbreadcrumb%2Ftoc.json&branch=main'
-                Kql          = @'
-resources
-| where type =~ "microsoft.containerregistry/registries"
-| where location in~ ("australiaeast", "brazilsouth", "canadacentral", "centralindia", "centralus", "eastasia", "eastus", "eastus2", "francecentral", "germanywestcentral", "israelcentral", "italynorth", "japaneast", "japanwest", "koreacentral", "mexicocentral", "newzealandnorth", "northeurope", "norwayeast", "polandcentral", "qatarcentral", "southafricanorth", "southcentralus", "southeastasia", "spaincentral", "swedencentral", "switzerlandnorth", "uaenorth", "uksouth", "westeurope", "westus2", "westus3", "usgovvirginia", "chinanorth3")
-| where properties.zoneRedundancy != "Enabled"
-| project recommendationId = "63491f70-22e4-3b4a-8b0c-845450e46fac", name, id, tags, param1=strcat("zoneRedundancy: ", tostring(properties.zoneRedundancy))
-| order by id asc
-'@
-            }
-
             # AZR.0040 — Container Registry: disable anonymous pull access
             '03f4a7d8-c5b4-7842-8e6e-14997a34842b' = @{
                 AzrId        = 'AZR.0040'

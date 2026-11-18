@@ -4,7 +4,7 @@ Changes to this pack are recorded here.
 
 ## Unreleased
 
-- Add automated APRL-mapped checks for Azure Container Registry zone redundancy and anonymous pull access.
+- Add an automated APRL-mapped check for Azure Container Registry anonymous pull access.
 
 ## 0.1.0
 
