@@ -4,6 +4,8 @@ Changes to this pack are recorded here.
 
 ## Unreleased
 
+- Add an automated APRL-mapped check for Azure Container Registry anonymous pull access.
+
 ## 0.1.0
 
 - Include 37 read-only checks mapped to automated upstream APRL recommendations and retain 18 local custom controls.

@@ -736,6 +736,23 @@ resources
 '@
             }
 
+            # AZR.0040 — Container Registry: disable anonymous pull access
+            '03f4a7d8-c5b4-7842-8e6e-14997a34842b' = @{
+                AzrId        = 'AZR.0040'
+                Title        = 'Disable anonymous pull access for Azure Container Registry'
+                Impact       = 'Medium'
+                ResourceType = 'Microsoft.ContainerRegistry/registries'
+                HasAutomation = $true
+                LearnMoreUrl = 'https://learn.microsoft.com/azure/container-registry/anonymous-pull-access#about-anonymous-pull-access'
+                Kql          = @'
+resources
+| where type =~ "microsoft.containerregistry/registries"
+| where properties.anonymousPullEnabled == "true"
+| project recommendationId = "03f4a7d8-c5b4-7842-8e6e-14997a34842b", name, id, tags
+| order by id asc
+'@
+            }
+
         } # end $script:MtAprlCatalog
     }
 
