@@ -1,0 +1,23 @@
+name: Copilot Setup Steps
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+permissions: {}
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Install PowerShell modules
+        shell: pwsh
+        run: |
+          Install-Module Az.Accounts -RequiredVersion '5.5.2' -Scope CurrentUser -Force -Confirm:$false
+          Install-Module Maester -RequiredVersion '3.0.0-rc26' -AllowPrerelease -Scope CurrentUser -Force -Confirm:$false
