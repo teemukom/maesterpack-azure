@@ -4,7 +4,7 @@
   "Guid": "1d428e5a-3bc1-4c75-87eb-76d9fe3ba5fd",
   "Name": "Azure APRL and Custom Controls",
   "Description": "Azure checks comprising APRL-mapped recommendations and local custom controls.",
-  "Version": "0.1.1",
+  "Version": "0.1.0",
   "Publisher": "teemukom",
   "License": "MIT",
   "Homepage": "https://github.com/teemukom/maesterpack-azure",
