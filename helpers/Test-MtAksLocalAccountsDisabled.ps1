@@ -33,6 +33,6 @@ function Test-MtAksLocalAccountsDisabled {
         $state = if ($cluster.disableLocalAccounts -eq $false) { 'Enabled' } else { 'Unknown' }
         "- $($cluster.name) (subscription: $($cluster.subscriptionId), resource group: $($cluster.resourceGroup)) has local accounts $state."
     }
-    Add-MtTestResultDetail -Result "Some AKS clusters do not have local accounts disabled.`n`nThis is a custom test related to, but not mapped to, APRL guidance. The related upstream APRL recommendation is currently Disabled and its query checks Azure RBAC rather than this local-account setting.`n`n**Cluster details:**`n$($details -join "`n")"
+    Add-MtTestResultDetail -Result "Some AKS clusters do not have local accounts disabled.`n`nThis is a custom test related to, but not mapped to, APRL guidance. The related upstream APRL recommendation is currently Disabled. Its query filters on Kubernetes RBAC (properties.enableRBAC) and only projects disableLocalAccounts; it does not evaluate whether local accounts are disabled.`n`n**Cluster details:**`n$($details -join "`n")"
     return $false
 }

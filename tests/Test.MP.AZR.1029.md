@@ -4,8 +4,10 @@ Production App Service apps should redirect HTTP requests to HTTPS and require i
 
 1. In the [Azure portal](https://portal.azure.com), open the app and select **TLS/SSL settings**.
 2. Set **HTTPS Only** to **On**.
-3. Set **Minimum Inbound TLS Version** to **1.2** or later, then save.
-4. Apply the same baseline to any deployment slots if required by your release process; slots are not evaluated by this test.
+3. Before raising the minimum inbound TLS version, inventory clients and confirm they support TLS 1.2 or later; older clients will be rejected.
+4. Test the TLS change in a staging slot or a representative non-production app, then roll it out gradually while monitoring client and application errors.
+5. After compatibility is confirmed, set **Minimum Inbound TLS Version** to **1.2** or later and save.
+6. Apply the same baseline to any deployment slots if required by your release process; slots are not evaluated by this test.
 
 Using Azure CLI for a web app:
 `az webapp update --name <app> --resource-group <resource-group> --https-only true`
